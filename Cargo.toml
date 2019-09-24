@@ -39,8 +39,8 @@ grin_store = { git = "https://github.com/mwcproject/mwc-node", tag = "2.4.0" }
 grin_util = { git = "https://github.com/mwcproject/mwc-node", tag = "2.4.0" }
 
 #grin_wallet_libwallet = { git = "https://github.com/mimblewimble/grin-wallet", tag = "v2.0.0" }
-grin_wallet_libwallet = { path = "../mwc-wallet/libwallet", version = "2.4.3-beta.1" }
-#grin_wallet_libwallet = { git = "https://github.com/mwcproject/mwc-wallet", branch = "kernel_lookup" }
+#grin_wallet_libwallet = { path = "../mwc-wallet/libwallet", version = "2.4.3-beta.1" }
+grin_wallet_libwallet = { git = "https://github.com/mwcproject/mwc-wallet", branch = "master" }
 
 [patch.crates-io]
 grin_secp256k1zkp = { git = "https://github.com/mwcproject/rust-secp256k1-zkp", branch = "master" }
