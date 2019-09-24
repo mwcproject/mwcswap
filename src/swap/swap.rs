@@ -4,6 +4,7 @@ use super::ser::*;
 use super::types::*;
 use super::{ErrorKind, Keychain};
 use chrono::{DateTime, Utc};
+use grin_core::core::transaction::kernel_sig_msg;
 use grin_core::core::{transaction as tx, KernelFeatures, TxKernel};
 use grin_core::libtx::secp_ser;
 use grin_core::ser;
@@ -39,7 +40,7 @@ pub struct Swap {
 	pub(super) participant_id: usize,
 	pub(super) multisig: MultisigBuilder,
 	#[serde(deserialize_with = "slate_deser")]
-	pub(super) lock_slate: Slate,
+	pub lock_slate: Slate,
 	pub(super) lock_confirmations: Option<u64>,
 	#[serde(deserialize_with = "slate_deser")]
 	pub(super) refund_slate: Slate,
@@ -168,11 +169,7 @@ impl Swap {
 			.collect();
 		let pub_blind_sum = PublicKey::from_combination(secp, pub_blinds)?;
 
-		let features = KernelFeatures::Plain {
-			fee: self.redeem_slate.fee,
-		};
-		let message = features
-			.kernel_sig_msg()
+		let message = kernel_sig_msg(self.redeem_slate.fee, 0, KernelFeatures::Plain)
 			.map_err(|_| ErrorKind::Generic("Unable to generate message".into()))?;
 
 		Ok((pub_nonce_sum, pub_blind_sum, message))
@@ -281,7 +278,7 @@ pub fn publish_transaction<C: NodeClient>(
 	fluff: bool,
 ) -> Result<(), ErrorKind> {
 	let wrapper = TxWrapper {
-		tx_hex: to_hex(ser::ser_vec(tx, ser::ProtocolVersion::local()).unwrap()),
+		tx_hex: to_hex(ser::ser_vec(tx).unwrap()),
 	};
 	node_client.post_tx(&wrapper, fluff)?;
 	Ok(())

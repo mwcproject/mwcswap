@@ -1,4 +1,4 @@
-use super::bitcoin::{BtcBuyerContext, BtcData, BtcSellerContext};
+pub use super::bitcoin::{BtcBuyerContext, BtcData, BtcSellerContext};
 use super::ser::*;
 use super::ErrorKind;
 use grin_core::global::ChainTypes;

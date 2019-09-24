@@ -1,4 +1,4 @@
-extern crate bitcoin;
+pub extern crate bitcoin;
 extern crate bitcoin_hashes;
 extern crate blake2_rfc as blake2;
 extern crate byteorder;
@@ -23,4 +23,4 @@ pub use swap::multisig::Builder;
 pub use swap::types::{Action, BuyerContext, Context, Currency, Role, SellerContext, Status};
 pub use swap::{ErrorKind, Keychain, Swap};
 
-mod swap;
+pub mod swap;

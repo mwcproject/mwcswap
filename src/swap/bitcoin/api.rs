@@ -335,7 +335,7 @@ where
 	}
 }
 
-impl<K, C, B> SwapApi<K> for BtcSwapApi<K, C, B>
+impl<K, C: 'static, B> SwapApi<K> for BtcSwapApi<K, C, B>
 where
 	K: Keychain,
 	C: NodeClient,
