@@ -9,7 +9,7 @@ use grin_util::secp::Signature;
 use libwallet::{ParticipantData as TxParticipant, VersionedSlate};
 use uuid::Uuid;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Message {
 	pub id: Uuid,
 	pub inner: Update,
