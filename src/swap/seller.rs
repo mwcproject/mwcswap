@@ -271,7 +271,7 @@ impl SellApi {
 				if swap.redeem_confirmations.unwrap_or(0) == 0 {
 					match swap.find_redeem_kernel(node_client)? {
 						Some((kernel, h)) => {
-							let height = node_client.get_chain_height()?;
+							let height = node_client.get_chain_tip()?.0;
 							swap.redeem_confirmations = Some(height.saturating_sub(h) + 1);
 
 							// Replace kernel
@@ -412,8 +412,7 @@ impl SellApi {
 
 		// Build lock slate
 		// The multisig output is missing because it is not yet fully known
-		let mut elems = Vec::with_capacity(4);
-		elems.push(build::with_fee(slate.fee));
+		let mut elems = Vec::new();
 		for (input_identifier, input_amount) in &scontext.inputs {
 			elems.push(build::input(*input_amount, input_identifier.clone()));
 		}
@@ -503,9 +502,7 @@ impl SellApi {
 
 		// Build refund slate
 		// The multisig input is missing because it is not yet fully known
-		let mut elems = Vec::with_capacity(3);
-		elems.push(build::with_lock_height(slate.lock_height));
-		elems.push(build::with_fee(slate.fee));
+		let mut elems = Vec::new();
 		elems.push(build::output(refund_amount, scontext.refund_output.clone()));
 		slate
 			.add_transaction_elements(keychain, &proof::ProofBuilder::new(keychain), elems)?

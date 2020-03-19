@@ -187,7 +187,7 @@ impl BuyApi {
 					// Update confirmations
 					match swap.find_redeem_kernel(node_client)? {
 						Some((_, h)) => {
-							let height = node_client.get_chain_height()?;
+							let height = node_client.get_chain_tip()?.0;
 							swap.redeem_confirmations = Some(height.saturating_sub(h) + 1);
 							Action::Complete
 						}
@@ -391,8 +391,7 @@ impl BuyApi {
 		// Build slate
 		slate.fee = tx_fee(1, 1, 1, None);
 		slate.amount = swap.primary_amount - slate.fee;
-		let mut elems = Vec::with_capacity(2);
-		elems.push(build::with_fee(slate.fee));
+		let mut elems = Vec::new();
 		elems.push(build::output(slate.amount, bcontext.output.clone()));
 		slate
 			.add_transaction_elements(keychain, &proof::ProofBuilder::new(keychain), elems)?

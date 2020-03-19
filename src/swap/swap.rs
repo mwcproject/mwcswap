@@ -1,10 +1,10 @@
 use super::message::*;
 use super::multisig::{Builder as MultisigBuilder, Hashed};
+use grin_core::ser::ProtocolVersion;
 use super::ser::*;
 use super::types::*;
 use super::{ErrorKind, Keychain};
 use chrono::{DateTime, Utc};
-use grin_core::core::transaction::kernel_sig_msg;
 use grin_core::core::{transaction as tx, KernelFeatures, TxKernel};
 use grin_core::libtx::secp_ser;
 use grin_core::ser;
@@ -138,7 +138,7 @@ impl Swap {
 	) -> Result<u64, ErrorKind> {
 		let commit = self.multisig.commit(secp)?;
 		let outputs = node_client.get_outputs_from_node(vec![commit])?;
-		let height = node_client.get_chain_height()?;
+		let height = node_client.get_chain_tip()?.0;
 		for (commit_out, (_, height_out, _)) in outputs {
 			if commit_out == commit {
 				let confirmations = height.saturating_sub(height_out) + 1;
@@ -169,7 +169,8 @@ impl Swap {
 			.collect();
 		let pub_blind_sum = PublicKey::from_combination(secp, pub_blinds)?;
 
-		let message = kernel_sig_msg(self.redeem_slate.fee, 0, KernelFeatures::Plain)
+		let features = KernelFeatures::Plain { fee: self.redeem_slate.fee};
+		let message = features.kernel_sig_msg()
 			.map_err(|_| ErrorKind::Generic("Unable to generate message".into()))?;
 
 		Ok((pub_nonce_sum, pub_blind_sum, message))
@@ -278,7 +279,7 @@ pub fn publish_transaction<C: NodeClient>(
 	fluff: bool,
 ) -> Result<(), ErrorKind> {
 	let wrapper = TxWrapper {
-		tx_hex: to_hex(ser::ser_vec(tx).unwrap()),
+		tx_hex: to_hex(ser::ser_vec(tx, ProtocolVersion::local()).unwrap()),
 	};
 	node_client.post_tx(&wrapper, fluff)?;
 	Ok(())

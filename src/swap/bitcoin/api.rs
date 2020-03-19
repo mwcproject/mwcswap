@@ -426,7 +426,7 @@ where
 			return Err(ErrorKind::UnexpectedCoinType);
 		}
 
-		let height = self.node_client.get_chain_height()?;
+		let height = self.node_client.get_chain_tip()?.0;
 		let mut swap = SellApi::create_swap_offer(
 			self.keychain()?,
 			context,
@@ -463,7 +463,7 @@ where
 			context.unwrap_buyer()?.unwrap_btc()?,
 		)?;
 
-		let height = self.node_client.get_chain_height()?;
+		let height = self.node_client.get_chain_tip()?.0;
 		let mut swap =
 			BuyApi::accept_swap_offer(self.keychain()?, context, address, id, offer, height)?;
 		swap.secondary_data = btc_data.wrap();
