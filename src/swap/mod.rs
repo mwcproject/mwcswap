@@ -1,3 +1,17 @@
+// Copyright 2019 The vault713 Developers
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 pub mod api;
 pub mod bitcoin;
 pub mod buyer;
@@ -18,12 +32,29 @@ pub(crate) use self::api::SwapApi;
 pub(crate) use self::buyer::BuyApi;
 pub(crate) use self::seller::SellApi;
 
-pub trait Keychain: grin_keychain::Keychain + Clone + 'static {}
-impl Keychain for grin_keychain::ExtKeychain {}
+pub use grin_keychain::Keychain;
+pub use libwallet::NodeClient;
 
 use libwallet::SlateVersion;
+use std::sync::atomic::{AtomicBool, Ordering};
+
 const CURRENT_VERSION: u8 = 1;
 const CURRENT_SLATE_VERSION: SlateVersion = SlateVersion::V2;
+
+lazy_static! {
+	/// Flag to set test mode
+	static ref TEST_MODE: AtomicBool = AtomicBool::new(false);
+}
+
+/// Set the test mode
+pub fn set_test_mode(mode: bool) {
+	TEST_MODE.store(mode, Ordering::Relaxed);
+}
+
+/// Check if we are in test mode
+pub fn is_test_mode() -> bool {
+	TEST_MODE.load(Ordering::Relaxed)
+}
 
 #[cfg(test)]
 mod tests {
@@ -199,7 +230,7 @@ mod tests {
 		fn post_tx(&self, tx: &libwallet::TxWrapper, _fluff: bool) -> Result<(), libwallet::Error> {
 			let wrapper = from_hex(tx.tx_hex.clone()).unwrap();
 			let mut cursor = Cursor::new(wrapper);
-			let tx: Transaction = deserialize(&mut cursor, ProtocolVersion::local()).unwrap();
+			let tx: Transaction = deserialize(&mut cursor, ProtocolVersion(1)).unwrap();
 			tx.validate(
 				Weighting::AsTransaction,
 				Arc::new(RwLock::new(LruVerifierCache::new())),
@@ -298,18 +329,16 @@ mod tests {
 
 	#[test]
 	fn test_refund_tx_lock() {
+		set_test_mode(true);
 		let kc_sell = keychain(1);
 		let ctx_sell = context_sell(&kc_sell);
 		let secondary_redeem_address = btc_address(&kc_sell);
 		let height = 100_000;
 
-		let mut api_sell = BtcSwapApi::new(
-			Some(kc_sell),
-			TestNodeClient::new(height),
-			TestBtcNodeClient::new(1),
-		);
+		let mut api_sell = BtcSwapApi::new(TestNodeClient::new(height), TestBtcNodeClient::new(1));
 		let (swap, _) = api_sell
 			.create_swap_offer(
+				&kc_sell,
 				&ctx_sell,
 				None,
 				100 * GRIN_UNIT,
@@ -318,22 +347,22 @@ mod tests {
 				secondary_redeem_address,
 			)
 			.unwrap();
-		let message = api_sell.message(&swap).unwrap();
+		let message = api_sell.message(&kc_sell, &swap).unwrap();
 
 		// Simulate short refund lock time by passing height+4h
 		let kc_buy = keychain(2);
 		let ctx_buy = context_buy(&kc_buy);
 		let mut api_buy = BtcSwapApi::new(
-			Some(kc_buy),
 			TestNodeClient::new(height + 4 * 60),
 			TestBtcNodeClient::new(1),
 		);
-		let res = api_buy.accept_swap_offer(&ctx_buy, None, message);
+		let res = api_buy.accept_swap_offer(&kc_buy, &ctx_buy, None, message);
 		assert_eq!(res.err().unwrap(), ErrorKind::InvalidLockHeightRefundTx); // Swap cannot be accepted
 	}
 
 	#[test]
 	fn test_btc_swap() {
+		set_test_mode(true);
 		let write_json = false;
 
 		let kc_sell = keychain(1);
@@ -349,9 +378,10 @@ mod tests {
 		let btc_amount = btc_amount_1 + btc_amount_2;
 
 		// Seller: create swap offer
-		let mut api_sell = BtcSwapApi::new(Some(kc_sell), nc.clone(), btc_nc.clone());
+		let mut api_sell = BtcSwapApi::new(nc.clone(), btc_nc.clone());
 		let (mut swap_sell, action) = api_sell
 			.create_swap_offer(
+				&kc_sell,
 				&ctx_sell,
 				None,
 				amount,
@@ -362,8 +392,10 @@ mod tests {
 			.unwrap();
 		assert_eq!(action, Action::SendMessage(1));
 		assert_eq!(swap_sell.status, Status::Created);
-		let message_1 = api_sell.message(&swap_sell).unwrap();
-		let action = api_sell.message_sent(&mut swap_sell, &ctx_sell).unwrap();
+		let message_1 = api_sell.message(&kc_sell, &swap_sell).unwrap();
+		let action = api_sell
+			.message_sent(&kc_sell, &mut swap_sell, &ctx_sell)
+			.unwrap();
 		assert_eq!(action, Action::ReceiveMessage);
 		assert_eq!(swap_sell.status, Status::Offered);
 
@@ -384,6 +416,19 @@ mod tests {
 				serde_json::to_string_pretty(&ctx_sell).unwrap(),
 			)
 			.unwrap();
+		} else {
+			assert_eq!(
+				read_to_string("test/swap_sell_1.json").unwrap(),
+				serde_json::to_string_pretty(&swap_sell).unwrap()
+			);
+			assert_eq!(
+				read_to_string("test/message_1.json").unwrap(),
+				serde_json::to_string_pretty(&message_1).unwrap()
+			);
+			assert_eq!(
+				read_to_string("test/context_sell.json").unwrap(),
+				serde_json::to_string_pretty(&ctx_sell).unwrap()
+			);
 		}
 
 		// Add inputs to utxo set
@@ -396,18 +441,24 @@ mod tests {
 		let ctx_buy = context_buy(&kc_buy);
 
 		// Buyer: accept swap offer
-		let mut api_buy = BtcSwapApi::new(Some(kc_buy), nc.clone(), btc_nc.clone());
+		let mut api_buy = BtcSwapApi::new(nc.clone(), btc_nc.clone());
 		let (mut swap_buy, action) = api_buy
-			.accept_swap_offer(&ctx_buy, None, message_1)
+			.accept_swap_offer(&kc_buy, &ctx_buy, None, message_1)
 			.unwrap();
 		assert_eq!(swap_buy.status, Status::Offered);
 		assert_eq!(action, Action::SendMessage(1));
-		let message_2 = api_buy.message(&swap_buy).unwrap();
-		let action = api_buy.message_sent(&mut swap_buy, &ctx_buy).unwrap();
+		let message_2 = api_buy.message(&kc_buy, &swap_buy).unwrap();
+		let action = api_buy
+			.message_sent(&kc_buy, &mut swap_buy, &ctx_buy)
+			.unwrap();
 
 		// Buyer: should deposit bitcoin
 		let address = match action {
-			Action::DepositSecondary { amount, address } => {
+			Action::DepositSecondary {
+				currency: _,
+				amount,
+				address,
+			} => {
 				assert_eq!(amount, btc_amount);
 				address
 			}
@@ -429,8 +480,15 @@ mod tests {
 		let txid_1 = tx_1.txid();
 		btc_nc.push_transaction(&tx_1);
 
-		match api_buy.required_action(&mut swap_buy, &ctx_buy).unwrap() {
-			Action::DepositSecondary { amount, address: _ } => assert_eq!(amount, btc_amount_2),
+		match api_buy
+			.required_action(&kc_buy, &mut swap_buy, &ctx_buy)
+			.unwrap()
+		{
+			Action::DepositSecondary {
+				currency: _,
+				amount,
+				address: _,
+			} => assert_eq!(amount, btc_amount_2),
 			_ => panic!("Invalid action"),
 		};
 
@@ -447,8 +505,12 @@ mod tests {
 		};
 		let txid_2 = tx_2.txid();
 		btc_nc.push_transaction(&tx_2);
-		match api_buy.required_action(&mut swap_buy, &ctx_buy).unwrap() {
+		match api_buy
+			.required_action(&kc_buy, &mut swap_buy, &ctx_buy)
+			.unwrap()
+		{
 			Action::ConfirmationsSecondary {
+				currency: _,
 				required: _,
 				actual,
 			} => assert_eq!(actual, 1),
@@ -457,7 +519,10 @@ mod tests {
 		btc_nc.mine_blocks(5);
 
 		// Buyer: wait for Grin confirmations
-		match api_buy.required_action(&mut swap_buy, &ctx_buy).unwrap() {
+		match api_buy
+			.required_action(&kc_buy, &mut swap_buy, &ctx_buy)
+			.unwrap()
+		{
 			Action::Confirmations {
 				required: _,
 				actual,
@@ -499,16 +564,29 @@ mod tests {
 				serde_json::to_string_pretty(&ctx_buy).unwrap(),
 			)
 			.unwrap();
+		} else {
+			assert_eq!(
+				read_to_string("test/swap_buy_1.json").unwrap(),
+				serde_json::to_string_pretty(&swap_buy).unwrap()
+			);
+			assert_eq!(
+				read_to_string("test/message_2.json").unwrap(),
+				serde_json::to_string_pretty(&message_2).unwrap()
+			);
+			assert_eq!(
+				read_to_string("test/context_buy.json").unwrap(),
+				serde_json::to_string_pretty(&ctx_buy).unwrap()
+			);
 		}
 
 		// Seller: receive accepted offer
 		let action = api_sell
-			.receive_message(&mut swap_sell, &ctx_sell, message_2)
+			.receive_message(&kc_sell, &mut swap_sell, &ctx_sell, message_2)
 			.unwrap();
 		assert_eq!(action, Action::PublishTx);
 		assert_eq!(swap_sell.status, Status::Accepted);
 		let action = api_sell
-			.publish_transaction(&mut swap_sell, &ctx_sell)
+			.publish_transaction(&kc_sell, &mut swap_sell, &ctx_sell)
 			.unwrap();
 		match action {
 			Action::Confirmations {
@@ -524,11 +602,19 @@ mod tests {
 				serde_json::to_string_pretty(&swap_sell).unwrap(),
 			)
 			.unwrap();
+		} else {
+			assert_eq!(
+				read_to_string("test/swap_sell_2.json").unwrap(),
+				serde_json::to_string_pretty(&swap_sell).unwrap()
+			);
 		}
 
 		// Seller: wait for Grin confirmations
 		nc.mine_blocks(10);
-		match api_sell.required_action(&mut swap_sell, &ctx_sell).unwrap() {
+		match api_sell
+			.required_action(&kc_sell, &mut swap_sell, &ctx_sell)
+			.unwrap()
+		{
 			Action::Confirmations {
 				required: _,
 				actual,
@@ -537,7 +623,10 @@ mod tests {
 		}
 
 		// Buyer: wait for less Grin confirmations
-		match api_buy.required_action(&mut swap_buy, &ctx_buy).unwrap() {
+		match api_buy
+			.required_action(&kc_sell, &mut swap_buy, &ctx_buy)
+			.unwrap()
+		{
 			Action::Confirmations {
 				required: _,
 				actual,
@@ -553,8 +642,12 @@ mod tests {
 
 		// Seller: wait BTC confirmations
 		nc.mine_blocks(20);
-		match api_sell.required_action(&mut swap_sell, &ctx_sell).unwrap() {
+		match api_sell
+			.required_action(&kc_sell, &mut swap_sell, &ctx_sell)
+			.unwrap()
+		{
 			Action::ConfirmationsSecondary {
+				currency: _,
 				required: _,
 				actual,
 			} => assert_eq!(actual, 5),
@@ -568,14 +661,23 @@ mod tests {
 				serde_json::to_string_pretty(&swap_sell).unwrap(),
 			)
 			.unwrap();
+		} else {
+			assert_eq!(
+				read_to_string("test/swap_sell_3.json").unwrap(),
+				serde_json::to_string_pretty(&swap_sell).unwrap()
+			);
 		}
 
 		// Buyer: start redeem
-		let action = api_buy.required_action(&mut swap_buy, &ctx_buy).unwrap();
+		let action = api_buy
+			.required_action(&kc_buy, &mut swap_buy, &ctx_buy)
+			.unwrap();
 		assert_eq!(action, Action::SendMessage(2));
 		assert_eq!(swap_buy.status, Status::Locked);
-		let message_3 = api_buy.message(&swap_buy).unwrap();
-		api_buy.message_sent(&mut swap_buy, &ctx_buy).unwrap();
+		let message_3 = api_buy.message(&kc_buy, &swap_buy).unwrap();
+		api_buy
+			.message_sent(&kc_buy, &mut swap_buy, &ctx_buy)
+			.unwrap();
 
 		if write_json {
 			write(
@@ -588,19 +690,32 @@ mod tests {
 				serde_json::to_string_pretty(&message_3).unwrap(),
 			)
 			.unwrap();
+		} else {
+			assert_eq!(
+				read_to_string("test/swap_buy_2.json").unwrap(),
+				serde_json::to_string_pretty(&swap_buy).unwrap()
+			);
+			assert_eq!(
+				read_to_string("test/message_3.json").unwrap(),
+				serde_json::to_string_pretty(&message_3).unwrap()
+			);
 		}
 
 		// Seller: sign redeem
-		let action = api_sell.required_action(&mut swap_sell, &ctx_sell).unwrap();
+		let action = api_sell
+			.required_action(&kc_sell, &mut swap_sell, &ctx_sell)
+			.unwrap();
 		assert_eq!(action, Action::ReceiveMessage);
 		assert_eq!(swap_sell.status, Status::Locked);
 		let action = api_sell
-			.receive_message(&mut swap_sell, &ctx_sell, message_3)
+			.receive_message(&kc_sell, &mut swap_sell, &ctx_sell, message_3)
 			.unwrap();
 		assert_eq!(action, Action::SendMessage(2));
 		assert_eq!(swap_sell.status, Status::InitRedeem);
-		let message_4 = api_sell.message(&swap_sell).unwrap();
-		let action = api_sell.message_sent(&mut swap_sell, &ctx_sell).unwrap();
+		let message_4 = api_sell.message(&kc_sell, &swap_sell).unwrap();
+		let action = api_sell
+			.message_sent(&kc_sell, &mut swap_sell, &ctx_sell)
+			.unwrap();
 
 		// Seller: wait for buyer's on-chain redeem tx
 		assert_eq!(action, Action::ConfirmationRedeem);
@@ -617,28 +732,41 @@ mod tests {
 				serde_json::to_string_pretty(&message_4).unwrap(),
 			)
 			.unwrap();
+		} else {
+			assert_eq!(
+				read_to_string("test/swap_sell_4.json").unwrap(),
+				serde_json::to_string_pretty(&swap_sell).unwrap()
+			);
+			assert_eq!(
+				read_to_string("test/message_4.json").unwrap(),
+				serde_json::to_string_pretty(&message_4).unwrap()
+			);
 		}
 
 		// Buyer: redeem
-		let action = api_buy.required_action(&mut swap_buy, &ctx_buy).unwrap();
+		let action = api_buy
+			.required_action(&kc_buy, &mut swap_buy, &ctx_buy)
+			.unwrap();
 		assert_eq!(action, Action::ReceiveMessage);
 		assert_eq!(swap_buy.status, Status::InitRedeem);
 		let action = api_buy
-			.receive_message(&mut swap_buy, &ctx_buy, message_4)
+			.receive_message(&kc_buy, &mut swap_buy, &ctx_buy, message_4)
 			.unwrap();
 		assert_eq!(action, Action::PublishTx);
 		assert_eq!(swap_buy.status, Status::Redeem);
 		let action = api_buy
-			.publish_transaction(&mut swap_buy, &ctx_buy)
+			.publish_transaction(&kc_buy, &mut swap_buy, &ctx_buy)
 			.unwrap();
 		assert_eq!(action, Action::ConfirmationRedeem);
 
 		// Buyer: complete!
 		nc.mine_block();
-		let action = api_buy.required_action(&mut swap_buy, &ctx_buy).unwrap();
+		let action = api_buy
+			.required_action(&kc_buy, &mut swap_buy, &ctx_buy)
+			.unwrap();
 		assert_eq!(action, Action::Complete);
 		// At this point, buyer would add Grin to their outputs
-		let action = api_buy.completed(&mut swap_buy, &ctx_buy).unwrap();
+		let action = api_buy.completed(&kc_buy, &mut swap_buy, &ctx_buy).unwrap();
 		assert_eq!(action, Action::None);
 		assert_eq!(swap_buy.status, Status::Completed);
 
@@ -648,11 +776,18 @@ mod tests {
 				serde_json::to_string_pretty(&swap_buy).unwrap(),
 			)
 			.unwrap();
+		} else {
+			assert_eq!(
+				read_to_string("test/swap_buy_3.json").unwrap(),
+				serde_json::to_string_pretty(&swap_buy).unwrap()
+			);
 		}
 
 		// Seller: publish BTC tx
-		let action = api_sell.required_action(&mut swap_sell, &ctx_sell).unwrap();
-		assert_eq!(action, Action::PublishTxSecondary);
+		let action = api_sell
+			.required_action(&kc_sell, &mut swap_sell, &ctx_sell)
+			.unwrap();
+		assert_eq!(action, Action::PublishTxSecondary(Currency::Btc));
 		assert_eq!(swap_sell.status, Status::RedeemSecondary);
 
 		if write_json {
@@ -661,22 +796,31 @@ mod tests {
 				serde_json::to_string_pretty(&swap_sell).unwrap(),
 			)
 			.unwrap();
+		} else {
+			assert_eq!(
+				read_to_string("test/swap_sell_5.json").unwrap(),
+				serde_json::to_string_pretty(&swap_sell).unwrap()
+			);
 		}
 
 		// Seller: wait for BTC confirmations
 		let action = api_sell
-			.publish_secondary_transaction(&mut swap_sell, &ctx_sell)
+			.publish_secondary_transaction(&kc_sell, &mut swap_sell, &ctx_sell)
 			.unwrap();
 		match action {
-			Action::ConfirmationRedeemSecondary(_) => {}
+			Action::ConfirmationRedeemSecondary(_, _) => {}
 			_ => panic!("Invalid action"),
 		};
 
 		// Seller: complete!
 		btc_nc.mine_block();
-		let action = api_sell.required_action(&mut swap_sell, &ctx_sell).unwrap();
+		let action = api_sell
+			.required_action(&kc_sell, &mut swap_sell, &ctx_sell)
+			.unwrap();
 		assert_eq!(action, Action::Complete);
-		let action = api_sell.completed(&mut swap_sell, &ctx_sell).unwrap();
+		let action = api_sell
+			.completed(&kc_sell, &mut swap_sell, &ctx_sell)
+			.unwrap();
 		assert_eq!(action, Action::None);
 		assert_eq!(swap_sell.status, Status::Completed);
 
@@ -686,7 +830,14 @@ mod tests {
 				serde_json::to_string_pretty(&swap_sell).unwrap(),
 			)
 			.unwrap();
+		} else {
+			assert_eq!(
+				read_to_string("test/swap_sell_6.json").unwrap(),
+				serde_json::to_string_pretty(&swap_sell).unwrap()
+			);
 		}
+
+		assert!(!write_json, "json files written");
 	}
 
 	#[test]

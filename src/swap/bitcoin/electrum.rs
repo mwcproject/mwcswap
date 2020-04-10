@@ -1,3 +1,17 @@
+// Copyright 2019 The vault713 Developers
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 use super::client::*;
 use super::rpc::*;
 use crate::swap::ErrorKind;
@@ -8,7 +22,9 @@ use grin_util::{from_hex, to_hex};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::io::Cursor;
+use std::mem::replace;
 use std::str::FromStr;
+use std::time::{Duration, Instant};
 
 struct ElectrumRpcClient {
 	inner: RpcClient,
@@ -52,6 +68,10 @@ impl ElectrumRpcClient {
 		client.version()?;
 
 		Ok(client)
+	}
+
+	pub fn is_connected(&self) -> bool {
+		self.inner.is_connected()
 	}
 
 	fn wait<T: for<'de> Deserialize<'de>>(&mut self, id: String) -> Result<T, ElectrumError> {
@@ -205,9 +225,12 @@ pub struct Utxo {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ElectrumTransaction {
-	pub blockhash: String,
-	pub blocktime: u64,
-	pub confirmations: u64,
+	#[serde(default)]
+	pub blockhash: Option<String>,
+	#[serde(default)]
+	pub blocktime: Option<u64>,
+	#[serde(default)]
+	pub confirmations: Option<u64>,
 	pub hash: String,
 	pub hex: String,
 	pub locktime: u64,
@@ -222,7 +245,7 @@ pub struct ElectrumTransaction {
 pub struct ElectrumNodeClient {
 	pub address: String,
 	pub testnet: bool,
-	client: Option<ElectrumRpcClient>,
+	client: Option<(ElectrumRpcClient, Instant)>,
 }
 
 impl ElectrumNodeClient {
@@ -240,10 +263,26 @@ impl ElectrumNodeClient {
 	}
 
 	fn client(&mut self) -> Result<&mut ElectrumRpcClient, ErrorKind> {
-		if self.client.is_none() {
-			self.client = Some(ElectrumRpcClient::new(self.address.clone())?);
+		// Reset connection if it disconnected or if we haven't used it for a while
+		if self
+			.client
+			.as_ref()
+			.map(|(c, t)| !c.is_connected() || t.elapsed() >= Duration::from_secs(30))
+			.unwrap_or(false)
+		{
+			self.client = None;
 		}
-		Ok(self.client.as_mut().unwrap())
+
+		if self.client.is_none() {
+			self.client = Some((
+				ElectrumRpcClient::new(self.address.clone())?,
+				Instant::now(),
+			));
+		}
+
+		let (c, t) = self.client.as_mut().unwrap();
+		replace(t, Instant::now());
+		Ok(c)
 	}
 }
 
@@ -264,7 +303,9 @@ impl BtcNodeClient for ElectrumNodeClient {
 		let tx = client
 			.transaction(tx_hash)?
 			.ok_or(ErrorKind::NodeClient("Unable to determine height".into()))?;
-		Ok(tx.confirmations)
+		tx.confirmations.ok_or(ErrorKind::GenericNetwork(
+			"Unable to determine height".into(),
+		))
 	}
 
 	/// Fetch a list of unspent outputs belonging to this address
@@ -306,10 +347,9 @@ impl BtcNodeClient for ElectrumNodeClient {
 			None => return Ok(None),
 		};
 
-		let height = if tx.confirmations == 0 {
-			None
-		} else {
-			Some(head_height.saturating_sub(tx.confirmations - 1))
+		let height = match tx.confirmations {
+			Some(c) if c > 0 => Some(head_height.saturating_sub(c - 1)),
+			_ => None,
 		};
 
 		let tx_bytes =

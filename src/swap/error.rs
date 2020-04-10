@@ -1,3 +1,17 @@
+// Copyright 2019 The vault713 Developers
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 use super::multisig;
 use super::types::Status;
 use failure::Fail;
@@ -28,6 +42,10 @@ pub enum ErrorKind {
 	IncompatibleVersion,
 	#[fail(display = "Mismatch between swap and message IDs")]
 	MismatchedId,
+	#[fail(display = "Invalid amount string")]
+	InvalidAmountString,
+	#[fail(display = "Invalid currency")]
+	InvalidCurrency,
 	#[fail(display = "Invalid lock height for lock tx")]
 	InvalidLockHeightLockTx,
 	#[fail(display = "Invalid lock height for refund tx")]
@@ -59,7 +77,22 @@ pub enum ErrorKind {
 	#[fail(display = "{}", _0)]
 	NodeClient(String),
 	#[fail(display = "{}", _0)]
+	GenericNetwork(String),
+	#[fail(display = "{}", _0)]
 	Generic(String),
+}
+
+impl ErrorKind {
+	pub fn is_network_error(&self) -> bool {
+		use ErrorKind::*;
+		format!("");
+		match self {
+			Rpc(_) | NodeClient(_) | LibWallet(libwallet::ErrorKind::Node) | GenericNetwork(_) => {
+				true
+			}
+			_ => false,
+		}
+	}
 }
 
 impl From<grin_keychain::Error> for ErrorKind {
@@ -106,4 +139,14 @@ impl From<committed::Error> for ErrorKind {
 			e => ErrorKind::Generic(format!("{}", e)),
 		}
 	}
+}
+
+#[macro_export]
+macro_rules! generic {
+    ($($arg:tt)*) => ($crate::ErrorKind::Generic(format!($($arg)*)))
+}
+
+#[macro_export]
+macro_rules! network {
+    ($($arg:tt)*) => ($crate::ErrorKind::GenericNetwork(format!($($arg)*)))
 }

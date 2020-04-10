@@ -1,3 +1,17 @@
+// Copyright 2019 The vault713 Developers
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 use super::message::*;
 use super::multisig::{Builder as MultisigBuilder, Hashed};
 use grin_core::ser::ProtocolVersion;
@@ -8,7 +22,7 @@ use chrono::{DateTime, Utc};
 use grin_core::core::{transaction as tx, KernelFeatures, TxKernel};
 use grin_core::libtx::secp_ser;
 use grin_core::ser;
-use grin_keychain::SwitchCommitmentType;
+use grin_keychain::{Identifier, SwitchCommitmentType};
 use grin_util::secp::key::{PublicKey, SecretKey};
 use grin_util::secp::pedersen::{Commitment, RangeProof};
 use grin_util::secp::{Message as SecpMessage, Secp256k1, Signature};
@@ -40,7 +54,7 @@ pub struct Swap {
 	pub(super) participant_id: usize,
 	pub(super) multisig: MultisigBuilder,
 	#[serde(deserialize_with = "slate_deser")]
-	pub lock_slate: Slate,
+	pub(super) lock_slate: Slate,
 	pub(super) lock_confirmations: Option<u64>,
 	#[serde(deserialize_with = "slate_deser")]
 	pub(super) refund_slate: Slate,
@@ -71,13 +85,41 @@ impl Swap {
 		}
 	}
 
-	pub fn redeem_output(&self) -> Result<Option<(u64, Commitment)>, ErrorKind> {
-		let output = match self.redeem_slate.tx.outputs().get(0) {
-			Some(o) => o.commit.clone(),
-			None => return Ok(None),
-		};
+	pub fn change_output<K: Keychain>(
+		&self,
+		keychain: &K,
+		context: &Context,
+	) -> Result<(Identifier, u64, Commitment), ErrorKind> {
+		self.expect_seller()?;
+		let scontext = context.unwrap_seller()?;
 
-		Ok(Some((self.redeem_slate.amount, output)))
+		let identifier = scontext.change_output.clone();
+		let amount = scontext
+			.inputs
+			.iter()
+			.fold(0, |acc, (_, value)| acc + *value)
+			.saturating_sub(self.primary_amount);
+		let commit = keychain.commit(amount, &identifier, &SwitchCommitmentType::Regular)?;
+
+		Ok((identifier, amount, commit))
+	}
+
+	pub fn redeem_output<K: Keychain>(
+		&self,
+		keychain: &K,
+		context: &Context,
+	) -> Result<(Identifier, u64, Commitment), ErrorKind> {
+		self.expect_buyer()?;
+		let bcontext = context.unwrap_buyer()?;
+		if self.status < Status::InitRedeem || self.status > Status::Completed {
+			return Err(ErrorKind::UnexpectedStatus(Status::InitRedeem, self.status));
+		}
+
+		let identifier = bcontext.output.clone();
+		let amount = self.redeem_slate.amount;
+		let commit = keychain.commit(amount, &identifier, &SwitchCommitmentType::Regular)?;
+
+		Ok((identifier, amount, commit))
 	}
 
 	pub(super) fn expect_seller(&self) -> Result<(), ErrorKind> {
@@ -138,7 +180,7 @@ impl Swap {
 	) -> Result<u64, ErrorKind> {
 		let commit = self.multisig.commit(secp)?;
 		let outputs = node_client.get_outputs_from_node(vec![commit])?;
-		let height = node_client.get_chain_tip()?.0;
+		let height = node_client.get_chain_height()?;
 		for (commit_out, (_, height_out, _)) in outputs {
 			if commit_out == commit {
 				let confirmations = height.saturating_sub(height_out) + 1;
@@ -153,24 +195,26 @@ impl Swap {
 	pub(super) fn redeem_tx_fields(
 		&self,
 		secp: &Secp256k1,
+		redeem_slate: &Slate,
 	) -> Result<(PublicKey, PublicKey, SecpMessage), ErrorKind> {
-		let pub_nonces = self
-			.redeem_slate
+		let pub_nonces = redeem_slate
 			.participant_data
 			.iter()
 			.map(|p| &p.public_nonce)
 			.collect();
 		let pub_nonce_sum = PublicKey::from_combination(secp, pub_nonces)?;
-		let pub_blinds = self
-			.redeem_slate
+		let pub_blinds = redeem_slate
 			.participant_data
 			.iter()
 			.map(|p| &p.public_blind_excess)
 			.collect();
 		let pub_blind_sum = PublicKey::from_combination(secp, pub_blinds)?;
 
-		let features = KernelFeatures::Plain { fee: self.redeem_slate.fee};
-		let message = features.kernel_sig_msg()
+		let features = KernelFeatures::Plain {
+			fee: redeem_slate.fee,
+		};
+		let message = features
+			.kernel_sig_msg()
 			.map_err(|_| ErrorKind::Generic("Unable to generate message".into()))?;
 
 		Ok((pub_nonce_sum, pub_blind_sum, message))
@@ -279,7 +323,7 @@ pub fn publish_transaction<C: NodeClient>(
 	fluff: bool,
 ) -> Result<(), ErrorKind> {
 	let wrapper = TxWrapper {
-		tx_hex: to_hex(ser::ser_vec(tx, ProtocolVersion::local()).unwrap()),
+		tx_hex: to_hex(ser::ser_vec(tx, ser::ProtocolVersion(1)).unwrap()),
 	};
 	node_client.post_tx(&wrapper, fluff)?;
 	Ok(())

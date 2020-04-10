@@ -1,3 +1,17 @@
+// Copyright 2019 The vault713 Developers
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 use crate::swap::ErrorKind;
 use serde::Serialize;
 use serde_json::Value;
@@ -8,6 +22,7 @@ use std::time::Duration;
 pub struct LineStream {
 	inner: TcpStream,
 	reader: BufReader<TcpStream>,
+	connected: bool,
 }
 
 impl LineStream {
@@ -26,20 +41,45 @@ impl LineStream {
 		Ok(Self {
 			inner: stream,
 			reader,
+			connected: true,
 		})
+	}
+
+	pub fn is_connected(&self) -> bool {
+		self.connected
 	}
 
 	pub fn read_line(&mut self) -> Result<String, ErrorKind> {
 		let mut line = String::new();
-		self.reader.read_line(&mut line)?;
+		match self.reader.read_line(&mut line) {
+			Err(e) => {
+				self.connected = false;
+				return Err(e.into());
+			}
+			Ok(c) if c == 0 => {
+				self.connected = false;
+				return Err(ErrorKind::Generic("Connection closed".into()));
+			}
+			Ok(_) => {}
+		}
+
 		Ok(line)
 	}
 
 	pub fn write_line(&mut self, mut line: String) -> Result<(), ErrorKind> {
 		line.push_str("\n");
 		let bytes = line.into_bytes();
-		self.inner.write(&bytes)?;
-		Ok(())
+		match self.inner.write(&bytes) {
+			Err(e) => {
+				self.connected = false;
+				Err(e.into())
+			}
+			Ok(c) if c == 0 => {
+				self.connected = false;
+				Err(ErrorKind::Generic("Connection closed".into()))
+			}
+			Ok(_) => Ok(()),
+		}
 	}
 }
 
@@ -51,6 +91,10 @@ impl RpcClient {
 	pub fn new(address: String) -> Result<Self, ErrorKind> {
 		let inner = LineStream::new(address).map_err(|_| ErrorKind::Rpc("Unable to connect"))?;
 		Ok(Self { inner })
+	}
+
+	pub fn is_connected(&self) -> bool {
+		self.inner.is_connected()
 	}
 
 	pub fn read(&mut self) -> Result<RpcResponse, ErrorKind> {

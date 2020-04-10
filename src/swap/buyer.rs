@@ -1,9 +1,23 @@
+// Copyright 2019 The vault713 Developers
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 use super::message::*;
 use super::swap::{publish_transaction, tx_add_input, tx_add_output, Swap};
 use super::types::*;
-use super::{ErrorKind, Keychain, CURRENT_SLATE_VERSION, CURRENT_VERSION};
+use super::{is_test_mode, ErrorKind, Keychain, CURRENT_SLATE_VERSION, CURRENT_VERSION};
 use crate::swap::multisig::{Builder as MultisigBuilder, ParticipantData as MultisigParticipant};
-use chrono::Utc;
+use chrono::{TimeZone, Utc};
 use grin_core::libtx::{build, proof, tx_fee};
 use grin_keychain::{BlindSum, BlindingFactor, SwitchCommitmentType};
 use grin_util::secp::aggsig;
@@ -25,6 +39,7 @@ impl BuyApi {
 		offer: OfferUpdate,
 		height: u64,
 	) -> Result<Swap, ErrorKind> {
+		let test_mode = is_test_mode();
 		if offer.version != CURRENT_VERSION {
 			return Err(ErrorKind::IncompatibleVersion);
 		}
@@ -45,6 +60,9 @@ impl BuyApi {
 
 		// Start redeem slate
 		let mut redeem_slate = Slate::blank(2);
+		if test_mode {
+			redeem_slate.id = Uuid::parse_str("78aa5af1-048e-4c49-8776-a2e66d4a460c").unwrap()
+		}
 		redeem_slate.participant_data.push(offer.redeem_participant);
 
 		let multisig = MultisigBuilder::new(
@@ -56,6 +74,12 @@ impl BuyApi {
 			None,
 		);
 
+		let started = if test_mode {
+			Utc.ymd(2019, 9, 4).and_hms_micro(21, 22, 33, 386997)
+		} else {
+			Utc::now()
+		};
+
 		let mut swap = Swap {
 			id,
 			idx: 0,
@@ -63,7 +87,7 @@ impl BuyApi {
 			address,
 			network: offer.network,
 			role: Role::Buyer,
-			started: Utc::now(),
+			started,
 			status: Status::Offered,
 			primary_amount: offer.primary_amount,
 			secondary_amount: offer.secondary_amount,
@@ -225,7 +249,10 @@ impl BuyApi {
 	}
 
 	/// Secret that unlocks the funds on both chains
-	fn redeem_secret<K: Keychain>(keychain: &K, context: &Context) -> Result<SecretKey, ErrorKind> {
+	pub fn redeem_secret<K: Keychain>(
+		keychain: &K,
+		context: &Context,
+	) -> Result<SecretKey, ErrorKind> {
 		let bcontext = context.unwrap_buyer()?;
 		let sec_key = keychain.derive_key(0, &bcontext.redeem, &SwitchCommitmentType::None)?;
 
@@ -356,7 +383,7 @@ impl BuyApi {
 	}
 
 	/// Convenience function to calculate the secret that is used for signing the redeem slate
-	fn redeem_tx_secret<K: Keychain>(
+	pub fn redeem_tx_secret<K: Keychain>(
 		keychain: &K,
 		swap: &Swap,
 		context: &Context,
@@ -396,8 +423,14 @@ impl BuyApi {
 		slate
 			.add_transaction_elements(keychain, &proof::ProofBuilder::new(keychain), elems)?
 			.secret_key(keychain.secp())?;
-		slate.tx.offset =
-			BlindingFactor::from_secret_key(SecretKey::new(keychain.secp(), &mut thread_rng()));
+		slate.tx.offset = if is_test_mode() {
+			BlindingFactor::from_hex(
+				"90de4a3812c7b78e567548c86926820d838e7e0b43346b1ba63066cd5cc7d999",
+			)
+			.unwrap()
+		} else {
+			BlindingFactor::from_secret_key(SecretKey::new(keychain.secp(), &mut thread_rng()))
+		};
 
 		// Add multisig input to slate
 		tx_add_input(slate, swap.multisig.commit(keychain.secp())?);
@@ -471,7 +504,8 @@ impl BuyApi {
 		}
 
 		let sec_key = Self::redeem_tx_secret(keychain, swap, context)?;
-		let (pub_nonce_sum, pub_blind_sum, message) = swap.redeem_tx_fields(keychain.secp())?;
+		let (pub_nonce_sum, pub_blind_sum, message) =
+			swap.redeem_tx_fields(keychain.secp(), &swap.redeem_slate)?;
 
 		let adaptor_signature = aggsig::sign_single(
 			keychain.secp(),
