@@ -87,7 +87,7 @@ impl ErrorKind {
 		use ErrorKind::*;
 		format!("");
 		match self {
-			Rpc(_) | NodeClient(_) | LibWallet(libwallet::ErrorKind::Node) | GenericNetwork(_) => {
+			Rpc(_) | NodeClient(_) | LibWallet(libwallet::ErrorKind::Node(_)) | GenericNetwork(_) => {
 				true
 			}
 			_ => false,

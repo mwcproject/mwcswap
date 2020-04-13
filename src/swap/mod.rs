@@ -26,7 +26,7 @@ pub mod types;
 pub use self::error::ErrorKind;
 pub use self::swap::Swap;
 pub use self::types::Context;
-pub use self::types::BtcSellerContext;
+//pub use self::types::BtcSellerContext;
 
 pub(crate) use self::api::SwapApi;
 pub(crate) use self::buyer::BuyApi;

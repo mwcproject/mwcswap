@@ -180,7 +180,7 @@ impl Swap {
 	) -> Result<u64, ErrorKind> {
 		let commit = self.multisig.commit(secp)?;
 		let outputs = node_client.get_outputs_from_node(vec![commit])?;
-		let height = node_client.get_chain_height()?;
+		let height = node_client.get_chain_tip()?.0;
 		for (commit_out, (_, height_out, _)) in outputs {
 			if commit_out == commit {
 				let confirmations = height.saturating_sub(height_out) + 1;
