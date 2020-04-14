@@ -35,7 +35,7 @@ extern crate uuid;
 pub use swap::api::SwapApi;
 pub use swap::buyer::BuyApi;
 pub use swap::seller::SellApi;
-pub use swap::bitcoin::{BtcNodeClient, BtcSwapApi, ElectrumNodeClient, TestBtcNodeClient};
+pub use swap::bitcoin::{BtcNodeClient, BtcSwapApi, ElectrumNodeClient, TestBtcNodeClient, BtcSellerContext, BtcBuyerContext, BtcData, BtcUpdate};
 pub use swap::message::{Message, OfferUpdate, SecondaryUpdate, Update};
 pub use swap::multisig::Builder;
 pub use swap::types::{Action, BuyerContext, Context, Currency, Role, SellerContext, Status};
