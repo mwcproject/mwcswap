@@ -33,6 +33,8 @@ extern crate sha2;
 extern crate uuid;
 
 pub use swap::api::SwapApi;
+pub use swap::buyer::BuyApi;
+pub use swap::seller::SellApi;
 pub use swap::bitcoin::{BtcNodeClient, BtcSwapApi, ElectrumNodeClient, TestBtcNodeClient};
 pub use swap::message::{Message, OfferUpdate, SecondaryUpdate, Update};
 pub use swap::multisig::Builder;
