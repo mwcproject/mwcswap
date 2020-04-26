@@ -248,14 +248,18 @@ impl Context {
 
 impl ser::Writeable for Context {
 	fn write<W: ser::Writer>(&self, writer: &mut W) -> Result<(), ser::Error> {
-		writer.write_bytes(&serde_json::to_vec(self).map_err(|_| ser::Error::CorruptedData)?)
+		writer.write_bytes(&serde_json::to_vec(self).map_err(|e| {
+			ser::Error::CorruptedData(format!("OutputData to json conversion failed, {}", e))
+		})?)
 	}
 }
 
 impl ser::Readable for Context {
 	fn read(reader: &mut dyn ser::Reader) -> Result<Context, ser::Error> {
 		let data = reader.read_bytes_len_prefix()?;
-		serde_json::from_slice(&data[..]).map_err(|_| ser::Error::CorruptedData)
+		serde_json::from_slice(&data[..]).map_err(|e| {
+			ser::Error::CorruptedData(format!("Json to OutputData conversion failed, {}", e))
+		})
 	}
 }
 
