@@ -737,8 +737,8 @@ checksum = "9b919933a397b79c37e33b77bb2aa3dc8eb6e165ad809e58ff75bc7db2e34574"
 
 [[package]]
 name = "grin_api"
-version = "3.1.3"
-source = "git+https://github.com/mwcproject/mwc-node#b236a0509981d46556ede08efabcdf3d094e1af3"
+version = "3.1.4"
+source = "git+https://github.com/mwcproject/mwc-node?tag=3.1.4#db35c0dec1f64dcfda5bb3fda3f737da82963e4e"
 dependencies = [
  "easy-jsonrpc-mw",
  "failure",
@@ -771,8 +771,8 @@ dependencies = [
 
 [[package]]
 name = "grin_chain"
-version = "3.1.3"
-source = "git+https://github.com/mwcproject/mwc-node#b236a0509981d46556ede08efabcdf3d094e1af3"
+version = "3.1.4"
+source = "git+https://github.com/mwcproject/mwc-node?tag=3.1.4#db35c0dec1f64dcfda5bb3fda3f737da82963e4e"
 dependencies = [
  "bit-vec",
  "bitflags 1.2.1",
@@ -795,8 +795,8 @@ dependencies = [
 
 [[package]]
 name = "grin_core"
-version = "3.1.3"
-source = "git+https://github.com/mwcproject/mwc-node#b236a0509981d46556ede08efabcdf3d094e1af3"
+version = "3.1.4"
+source = "git+https://github.com/mwcproject/mwc-node?tag=3.1.4#db35c0dec1f64dcfda5bb3fda3f737da82963e4e"
 dependencies = [
  "blake2-rfc",
  "byteorder",
@@ -822,8 +822,8 @@ dependencies = [
 
 [[package]]
 name = "grin_keychain"
-version = "3.1.3"
-source = "git+https://github.com/mwcproject/mwc-node#b236a0509981d46556ede08efabcdf3d094e1af3"
+version = "3.1.4"
+source = "git+https://github.com/mwcproject/mwc-node?tag=3.1.4#db35c0dec1f64dcfda5bb3fda3f737da82963e4e"
 dependencies = [
  "blake2-rfc",
  "byteorder",
@@ -847,8 +847,8 @@ dependencies = [
 
 [[package]]
 name = "grin_p2p"
-version = "3.1.3"
-source = "git+https://github.com/mwcproject/mwc-node#b236a0509981d46556ede08efabcdf3d094e1af3"
+version = "3.1.4"
+source = "git+https://github.com/mwcproject/mwc-node?tag=3.1.4#db35c0dec1f64dcfda5bb3fda3f737da82963e4e"
 dependencies = [
  "bitflags 1.2.1",
  "bytes",
@@ -872,8 +872,8 @@ dependencies = [
 
 [[package]]
 name = "grin_pool"
-version = "3.1.3"
-source = "git+https://github.com/mwcproject/mwc-node#b236a0509981d46556ede08efabcdf3d094e1af3"
+version = "3.1.4"
+source = "git+https://github.com/mwcproject/mwc-node?tag=3.1.4#db35c0dec1f64dcfda5bb3fda3f737da82963e4e"
 dependencies = [
  "blake2-rfc",
  "chrono",
@@ -907,8 +907,8 @@ dependencies = [
 
 [[package]]
 name = "grin_store"
-version = "3.1.3"
-source = "git+https://github.com/mwcproject/mwc-node#b236a0509981d46556ede08efabcdf3d094e1af3"
+version = "3.1.4"
+source = "git+https://github.com/mwcproject/mwc-node?tag=3.1.4#db35c0dec1f64dcfda5bb3fda3f737da82963e4e"
 dependencies = [
  "bit-vec",
  "byteorder",
@@ -929,8 +929,8 @@ dependencies = [
 
 [[package]]
 name = "grin_util"
-version = "3.1.3"
-source = "git+https://github.com/mwcproject/mwc-node#b236a0509981d46556ede08efabcdf3d094e1af3"
+version = "3.1.4"
+source = "git+https://github.com/mwcproject/mwc-node?tag=3.1.4#db35c0dec1f64dcfda5bb3fda3f737da82963e4e"
 dependencies = [
  "backtrace",
  "base64 0.9.3",
@@ -950,8 +950,8 @@ dependencies = [
 
 [[package]]
 name = "grin_wallet_config"
-version = "3.1.7"
-source = "git+https://github.com/mwcproject/mwc-wallet#742f4a8ed523d1fdbee4135c05c3f5899f559feb"
+version = "3.1.8-beta.1"
+source = "git+https://github.com/mwcproject/mwc-wallet?tag=3.1.8-beta.1#f4f6b906c6238f14c455fdb0b61f3e6ffd66fa83"
 dependencies = [
  "dirs",
  "failure",
@@ -965,8 +965,8 @@ dependencies = [
 
 [[package]]
 name = "grin_wallet_libwallet"
-version = "3.1.7"
-source = "git+https://github.com/mwcproject/mwc-wallet#742f4a8ed523d1fdbee4135c05c3f5899f559feb"
+version = "3.1.8-beta.1"
+source = "git+https://github.com/mwcproject/mwc-wallet?tag=3.1.8-beta.1#f4f6b906c6238f14c455fdb0b61f3e6ffd66fa83"
 dependencies = [
  "blake2-rfc",
  "byteorder",
@@ -998,8 +998,8 @@ dependencies = [
 
 [[package]]
 name = "grin_wallet_util"
-version = "3.1.7"
-source = "git+https://github.com/mwcproject/mwc-wallet#742f4a8ed523d1fdbee4135c05c3f5899f559feb"
+version = "3.1.8-beta.1"
+source = "git+https://github.com/mwcproject/mwc-wallet?tag=3.1.8-beta.1#f4f6b906c6238f14c455fdb0b61f3e6ffd66fa83"
 dependencies = [
  "dirs",
  "grin_api",
