@@ -31,7 +31,7 @@ grin_core = { git = "https://github.com/mwcproject/mwc-node", tag = "3.1.4" }
 grin_keychain = { git = "https://github.com/mwcproject/mwc-node", tag = "3.1.4" }
 grin_store = { git = "https://github.com/mwcproject/mwc-node", tag = "3.1.4" }
 grin_util = { git = "https://github.com/mwcproject/mwc-node", tag = "3.1.4" }
-grin_wallet_libwallet = { git = "https://github.com/mwcproject/mwc-wallet", tag = "3.1.8-beta.1" }
+grin_wallet_libwallet = { git = "https://github.com/mwcproject/mwc-wallet", branch = "newswap" }
 
 # For bleeding edge
 #grin_core = { git = "https://github.com/mwcproject/mwc-node", branch = "master" }

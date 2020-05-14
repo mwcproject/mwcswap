@@ -951,7 +951,7 @@ dependencies = [
 [[package]]
 name = "grin_wallet_config"
 version = "3.1.8-beta.1"
-source = "git+https://github.com/mwcproject/mwc-wallet?tag=3.1.8-beta.1#f4f6b906c6238f14c455fdb0b61f3e6ffd66fa83"
+source = "git+https://github.com/mwcproject/mwc-wallet?branch=newswap#8eb79bc849fcaf3d864909864b07348621824a4d"
 dependencies = [
  "dirs",
  "failure",
@@ -966,12 +966,13 @@ dependencies = [
 [[package]]
 name = "grin_wallet_libwallet"
 version = "3.1.8-beta.1"
-source = "git+https://github.com/mwcproject/mwc-wallet?tag=3.1.8-beta.1#f4f6b906c6238f14c455fdb0b61f3e6ffd66fa83"
+source = "git+https://github.com/mwcproject/mwc-wallet?branch=newswap#8eb79bc849fcaf3d864909864b07348621824a4d"
 dependencies = [
  "blake2-rfc",
  "byteorder",
  "chrono",
  "data-encoding",
+ "digest 0.7.6",
  "ed25519-dalek",
  "failure",
  "failure_derive",
@@ -979,13 +980,17 @@ dependencies = [
  "grin_core",
  "grin_keychain",
  "grin_p2p",
+ "grin_util",
  "grin_wallet_config",
  "grin_wallet_util",
+ "hmac",
  "lazy_static",
+ "libc",
  "log",
  "rand 0.6.5",
  "regex",
  "ring",
+ "ripemd160",
  "serde",
  "serde_derive",
  "serde_json",
@@ -999,7 +1004,7 @@ dependencies = [
 [[package]]
 name = "grin_wallet_util"
 version = "3.1.8-beta.1"
-source = "git+https://github.com/mwcproject/mwc-wallet?tag=3.1.8-beta.1#f4f6b906c6238f14c455fdb0b61f3e6ffd66fa83"
+source = "git+https://github.com/mwcproject/mwc-wallet?branch=newswap#8eb79bc849fcaf3d864909864b07348621824a4d"
 dependencies = [
  "dirs",
  "grin_api",
