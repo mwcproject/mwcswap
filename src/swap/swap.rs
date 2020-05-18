@@ -14,7 +14,6 @@
 
 use super::message::*;
 use super::multisig::{Builder as MultisigBuilder, Hashed};
-use grin_core::ser::ProtocolVersion;
 use super::ser::*;
 use super::types::*;
 use super::{ErrorKind, Keychain};
@@ -26,9 +25,15 @@ use grin_keychain::{Identifier, SwitchCommitmentType};
 use grin_util::secp::key::{PublicKey, SecretKey};
 use grin_util::secp::pedersen::{Commitment, RangeProof};
 use grin_util::secp::{Message as SecpMessage, Secp256k1, Signature};
-use grin_util::to_hex;
-use libwallet::{NodeClient, Slate, TxWrapper};
+use libwallet::{NodeClient, Slate};
 use uuid::Uuid;
+
+/// Dummy wrapper for the hex-encoded serialized transaction.
+#[derive(Serialize, Deserialize)]
+pub struct TxWrapper {
+        /// hex representation of transaction
+        pub tx_hex: String,
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Swap {
@@ -99,7 +104,7 @@ impl Swap {
 			.iter()
 			.fold(0, |acc, (_, value)| acc + *value)
 			.saturating_sub(self.primary_amount);
-		let commit = keychain.commit(amount, &identifier, &SwitchCommitmentType::Regular)?;
+		let commit = keychain.commit(amount, &identifier, SwitchCommitmentType::Regular)?;
 
 		Ok((identifier, amount, commit))
 	}
@@ -117,7 +122,7 @@ impl Swap {
 
 		let identifier = bcontext.output.clone();
 		let amount = self.redeem_slate.amount;
-		let commit = keychain.commit(amount, &identifier, &SwitchCommitmentType::Regular)?;
+		let commit = keychain.commit(amount, &identifier, SwitchCommitmentType::Regular)?;
 
 		Ok((identifier, amount, commit))
 	}
@@ -163,7 +168,7 @@ impl Swap {
 		let sec_key = keychain.derive_key(
 			self.primary_amount,
 			&context.multisig_key,
-			&SwitchCommitmentType::None,
+			SwitchCommitmentType::None,
 		)?;
 
 		Ok(sec_key)
@@ -326,9 +331,6 @@ pub fn publish_transaction<C: NodeClient>(
 	tx: &tx::Transaction,
 	fluff: bool,
 ) -> Result<(), ErrorKind> {
-	let wrapper = TxWrapper {
-		tx_hex: to_hex(ser::ser_vec(tx, ser::ProtocolVersion(1)).unwrap()),
-	};
-	node_client.post_tx(&wrapper, fluff)?;
+	node_client.post_tx(tx, fluff)?;
 	Ok(())
 }

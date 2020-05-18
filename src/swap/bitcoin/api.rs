@@ -224,7 +224,7 @@ where
 		let redeem_address = Address::from_str(&swap.unwrap_seller()?.0)
 			.map_err(|_| ErrorKind::Generic("Unable to parse BTC redeem address".into()))?;
 
-		let cosign_secret = keychain.derive_key(0, cosign_id, &SwitchCommitmentType::None)?;
+		let cosign_secret = keychain.derive_key(0, cosign_id, SwitchCommitmentType::None)?;
 		let redeem_secret = SellApi::calculate_redeem_secret(keychain, swap)?;
 
 		// This function should only be called once

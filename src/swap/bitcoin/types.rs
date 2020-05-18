@@ -77,7 +77,7 @@ impl BtcData {
 
 		let cosign = PublicKey::from_secret_key(
 			keychain.secp(),
-			&keychain.derive_key(0, &context.cosign, &SwitchCommitmentType::None)?,
+			&keychain.derive_key(0, &context.cosign, SwitchCommitmentType::None)?,
 		)?;
 
 		Ok(Self {
@@ -100,7 +100,7 @@ impl BtcData {
 	where
 		K: Keychain,
 	{
-		let key = keychain.derive_key(0, &context.refund, &SwitchCommitmentType::None)?;
+		let key = keychain.derive_key(0, &context.refund, SwitchCommitmentType::None)?;
 
 		Ok(Self {
 			lock_time: offer.lock_time,

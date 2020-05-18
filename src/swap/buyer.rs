@@ -254,7 +254,7 @@ impl BuyApi {
 		context: &Context,
 	) -> Result<SecretKey, ErrorKind> {
 		let bcontext = context.unwrap_buyer()?;
-		let sec_key = keychain.derive_key(0, &bcontext.redeem, &SwitchCommitmentType::None)?;
+		let sec_key = keychain.derive_key(0, &bcontext.redeem, SwitchCommitmentType::None)?;
 
 		Ok(sec_key)
 	}

@@ -27,18 +27,18 @@ sha2 = "0.8"
 uuid = { version = "0.7", features = ["serde", "v4"] }
 
 # for release
-grin_core = { git = "https://github.com/mwcproject/mwc-node", tag = "3.1.4" }
-grin_keychain = { git = "https://github.com/mwcproject/mwc-node", tag = "3.1.4" }
-grin_store = { git = "https://github.com/mwcproject/mwc-node", tag = "3.1.4" }
-grin_util = { git = "https://github.com/mwcproject/mwc-node", tag = "3.1.4" }
-grin_wallet_libwallet = { git = "https://github.com/mwcproject/mwc-wallet", branch = "newswap" }
+#grin_core = { git = "https://github.com/mwcproject/mwc-node", tag = "3.2.1" }
+#grin_keychain = { git = "https://github.com/mwcproject/mwc-node", tag = "3.2.1" }
+#grin_store = { git = "https://github.com/mwcproject/mwc-node", tag = "3.2.1" }
+#grin_util = { git = "https://github.com/mwcproject/mwc-node", tag = "3.2.1" }
+#grin_wallet_libwallet = { git = "https://github.com/mwcproject/mwc-wallet", branch = "master" }
 
 # For bleeding edge
-#grin_core = { git = "https://github.com/mwcproject/mwc-node", branch = "master" }
-#grin_keychain = { git = "https://github.com/mwcproject/mwc-node", branch = "master" }
-#grin_util = { git = "https://github.com/mwcproject/mwc-node", branch = "master" }
-#grin_store = { git = "https://github.com/mwcproject/mwc-node", branch = "master" }
-#grin_wallet_libwallet = { git = "https://github.com/mwcproject/mwc-wallet", branch = "master" }
+grin_core = { git = "https://github.com/mwcproject/mwc-node", branch = "master" }
+grin_keychain = { git = "https://github.com/mwcproject/mwc-node", branch = "master" }
+grin_util = { git = "https://github.com/mwcproject/mwc-node", branch = "master" }
+grin_store = { git = "https://github.com/mwcproject/mwc-node", branch = "master" }
+grin_wallet_libwallet = { git = "https://github.com/mwcproject/mwc-wallet", branch = "master" }
 
 # For local testing
 #grin_core = { path = "../mwc-node/core", version= "3.2.1"}
