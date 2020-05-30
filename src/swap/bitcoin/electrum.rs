@@ -126,7 +126,7 @@ impl ElectrumRpcClient {
 		let request = RpcRequest::new(self.next_id(), "blockchain.transaction.broadcast", params)?;
 		self.write(&request)?;
 		let hash: String = self.wait(request.id)?;
-		let hash = from_hex(hash.as_str()).map_err(|e| {
+		let hash = from_hex(hash.as_str()).map_err(|_e| {
 			ErrorKind::NodeClient("Unable to post tx".into())
 		})?;
 
@@ -355,7 +355,7 @@ impl BtcNodeClient for ElectrumNodeClient {
 			_ => None,
 		};
 
-		let tx_bytes = from_hex(tx.hex.as_str()).map_err(|e| {
+		let tx_bytes = from_hex(tx.hex.as_str()).map_err(|_e| {
 			ErrorKind::NodeClient("Unable to parse hex".into())
 		})?;
 
