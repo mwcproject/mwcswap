@@ -1027,7 +1027,6 @@ dependencies = [
 [[package]]
 name = "grin_wallet_config"
 version = "3.2.1"
-source = "git+https://github.com/mwcproject/mwc-wallet?branch=topic/hcasalet/mqs#8c0142fd457bd495f5091e66ef719e16c175d3e9"
 dependencies = [
  "dirs",
  "failure",
@@ -1042,7 +1041,6 @@ dependencies = [
 [[package]]
 name = "grin_wallet_libwallet"
 version = "3.2.1"
-source = "git+https://github.com/mwcproject/mwc-wallet?branch=topic/hcasalet/mqs"
 dependencies = [
  "blake2-rfc",
  "byteorder",
@@ -1080,7 +1078,6 @@ dependencies = [
 [[package]]
 name = "grin_wallet_util"
 version = "3.2.1"
-source = "git+https://github.com/mwcproject/mwc-wallet?branch=topic/hcasalet/mqs#8c0142fd457bd495f5091e66ef719e16c175d3e9"
 dependencies = [
  "data-encoding",
  "ed25519-dalek",

@@ -38,7 +38,7 @@ grin_core = { git = "https://github.com/mwcproject/mwc-node", branch = "topic/hc
 grin_keychain = { git = "https://github.com/mwcproject/mwc-node", branch = "topic/hcasalet/swap" }
 grin_util = { git = "https://github.com/mwcproject/mwc-node", branch = "topic/hcasalet/swap" }
 grin_store = { git = "https://github.com/mwcproject/mwc-node", branch = "topic/hcasalet/swap" }
-grin_wallet_libwallet = { git = "https://github.com/mwcproject/mwc-wallet", branch = "topic/hcasalet/mqs" }
+grin_wallet_libwallet = { path = "../mwc-wallet/libwallet", version = "3.2.1"}
 
 # For local testing
 #grin_core = { path = "../mwc-node/core", version= "3.2.1"}
